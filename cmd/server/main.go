@@ -8,19 +8,24 @@ import (
 	"syscall"
 	"time"
 
+	"go-shorten/config"
 	"go-shorten/internal/middleware"
 	"go-shorten/internal/repository"
 	"go-shorten/internal/router"
 	"go-shorten/internal/store"
+
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	log.SetFlags(log.LstdFlags | log.Llongfile)
 
+	gin.SetMode(config.GinMode)
+
 	store.ConnectToDB()
 
 	middleware.StartRateLimiterCleanup()
-	repository.StartOldURLCleanup()
+	repository.StartOldURLsCleanup()
 	store.StartCacheCleanup()
 
 	srv := &http.Server{

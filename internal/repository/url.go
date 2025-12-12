@@ -22,7 +22,7 @@ func CleanUpExpiredURLs(ctx context.Context) {
 	}
 }
 
-func StartOldURLCleanup() {
+func StartOldURLsCleanup() {
 	go func() {
 		CleanUpExpiredURLs(context.Background())
 
