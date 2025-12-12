@@ -69,6 +69,7 @@ func Migrate() error {
 		"pgx",
 		dB,
 	)
+
 	if err != nil {
 		return err
 	}

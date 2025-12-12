@@ -15,12 +15,17 @@ import (
 )
 
 const (
-	URL_CODE_LENGTH = 8
+	URL_CODE_LENGTH        = 8
+	CUSTOM_CODE_MIN_LENGTH = 4
+	CUSTOM_CODE_MAX_LENGTH = URL_CODE_LENGTH * 2
 )
 
 var (
-	ErrNoCodeSpecified = errors.New("no code supplied")
-	ErrCodeAlreadyUsed = errors.New("code already used")
+	ErrNoCodeSpecified    = errors.New("no code supplied")
+	ErrCodeAlreadyUsed    = errors.New("code already used")
+	ErrCustomCodeTooShort = errors.New("custom code too short")
+	ErrCustomCodeTooLong  = errors.New("custom code too long")
+	ErrDaysOutOfRange     = errors.New("no of days should be between 1 to 7")
 )
 
 func ShortenURLHandler(c *gin.Context) {
@@ -31,7 +36,7 @@ func ShortenURLHandler(c *gin.Context) {
 	}
 
 	if url.Days < 1 || url.Days > 7 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "No of days should be between 1 to 7"})
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrDaysOutOfRange.Error()})
 		return
 	}
 
@@ -49,6 +54,7 @@ func ShortenURLHandler(c *gin.Context) {
 			continue
 		}
 
+		// Is the code generation algorithm random enough?
 		if exists, err := repository.CheckCodeExists(c, encodedUrl); err != nil {
 			log.Println("Error: ", err.Error())
 			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -59,11 +65,11 @@ func ShortenURLHandler(c *gin.Context) {
 		}
 	}
 
-	if l := len(url.CustomCode); l > 2*URL_CODE_LENGTH {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "custom code too long"})
+	if l := len(url.CustomCode); l > CUSTOM_CODE_MAX_LENGTH {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooLong.Error()})
 		return
-	} else if l < URL_CODE_LENGTH {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": "custom code too short"})
+	} else if l < CUSTOM_CODE_MIN_LENGTH {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooShort.Error()})
 		return
 	} else {
 		if _, ok := store.GetFromCache(url.CustomCode); ok {
