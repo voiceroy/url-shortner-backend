@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"context"
+	"log"
 	"net/http"
 	"sync"
 	"time"
@@ -22,21 +24,31 @@ type Client struct {
 	LastSeen time.Time
 }
 
-func StartRateLimiterCleanup() {
-	go func() {
+func StartRateLimiterCleanup(wg *sync.WaitGroup, ctx context.Context) {
+	wg.Go(func() {
 		ticker := time.NewTicker(RateLimiterResetInterval)
 
-		for range ticker.C {
-			limiters.Range(func(key, value any) bool {
-				client := key.(*Client)
-				if time.Since(client.LastSeen) > 5*time.Minute {
-					limiters.Delete(key)
-				}
+		for {
+			select {
+			case <-ticker.C:
+				{
+					limiters.Range(func(key, value any) bool {
+						client := key.(*Client)
+						if time.Since(client.LastSeen) > 5*time.Minute {
+							limiters.Delete(key)
+						}
 
-				return true
-			})
+						return true
+					})
+				}
+			case <-ctx.Done():
+				{
+					log.Println("Stopping Rate Limiter")
+					return
+				}
+			}
 		}
-	}()
+	})
 }
 
 func RateLimit() gin.HandlerFunc {

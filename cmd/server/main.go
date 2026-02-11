@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
@@ -24,9 +25,11 @@ func main() {
 
 	store.ConnectToDB()
 
-	middleware.StartRateLimiterCleanup()
-	repository.StartOldURLsCleanup()
-	store.StartCacheCleanup()
+	wg := sync.WaitGroup{}
+	backgroundCtx, backgroundCancel := context.WithCancel(context.Background())
+	middleware.StartRateLimiterCleanup(&wg, backgroundCtx)
+	repository.StartOldURLsCleanup(&wg, backgroundCtx)
+	store.StartCacheCleanup(&wg, backgroundCtx)
 
 	srv := &http.Server{
 		Addr:         ":8080",
@@ -52,6 +55,8 @@ func main() {
 			log.Fatal("Server forced to shutdown:", err)
 		}
 
+		backgroundCancel()
+		wg.Wait()
 		log.Println("Server exiting")
 		done <- true
 	}(done)

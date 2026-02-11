@@ -5,6 +5,7 @@ import (
 	"errors"
 	"go-shorten/internal/store"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -22,15 +23,25 @@ func CleanUpExpiredURLs(ctx context.Context) {
 	}
 }
 
-func StartOldURLsCleanup() {
-	go func() {
+func StartOldURLsCleanup(wg *sync.WaitGroup, ctx context.Context) {
+	wg.Go(func() {
 		CleanUpExpiredURLs(context.Background())
 
 		ticker := time.NewTicker(URLCleanupInterval)
-		for range ticker.C {
-			CleanUpExpiredURLs(context.Background())
+		for {
+			select {
+			case <-ticker.C:
+				{
+					CleanUpExpiredURLs(context.Background())
+				}
+			case <-ctx.Done():
+				{
+					log.Println("Stopping Old URLs Cleanup")
+					return
+				}
+			}
 		}
-	}()
+	})
 }
 
 var (

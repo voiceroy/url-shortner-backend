@@ -1,19 +1,32 @@
 package store
 
 import (
+	"context"
+	"log"
 	"sync"
 	"time"
 )
 
 var cache = sync.Map{}
 
-func StartCacheCleanup() {
-	ticker := time.NewTicker(5 * time.Minute)
-	go func() {
-		for range ticker.C {
-			cache.Clear()
+func StartCacheCleanup(wg *sync.WaitGroup, ctx context.Context) {
+	wg.Go(func() {
+		ticker := time.NewTicker(5 * time.Minute)
+
+		for {
+			select {
+			case <-ticker.C:
+				{
+					cache.Clear()
+				}
+			case <-ctx.Done():
+				{
+					log.Println("Stopping Cache Cleanup")
+					return
+				}
+			}
 		}
-	}()
+	})
 }
 
 func AddToCache(key, value string) {
