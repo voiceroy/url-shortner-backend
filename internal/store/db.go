@@ -24,8 +24,8 @@ type DBPool struct {
 
 var db *DBPool
 
-func ConnectToDB() {
-	New()
+func ConnectToDB() *DBPool {
+	return New()
 }
 
 func New() *DBPool {

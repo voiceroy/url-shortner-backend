@@ -67,61 +67,63 @@ func ShortenURLHandler(c *gin.Context) {
 	}
 
 	var encodedUrl string
-	var tries uint
-	for url.CustomCode == "" {
-		tries++
+	if len(url.CustomCode) == 0 {
+		var tries uint
+		for {
+			tries++
 
-		h := sha256.New()
-		h.Write([]byte(rand.Text()))
-		h.Write([]byte(url.URL))
+			h := sha256.New()
+			h.Write([]byte(rand.Text()))
+			h.Write([]byte(url.URL))
 
-		encodedUrl = base64.RawURLEncoding.EncodeToString(h.Sum(nil))[:URL_CODE_LENGTH]
-		if _, ok := store.GetFromCache(encodedUrl); ok {
-			continue
+			encodedUrl = base64.RawURLEncoding.EncodeToString(h.Sum(nil))[:URL_CODE_LENGTH]
+			if _, ok := store.GetFromCache(encodedUrl); ok {
+				continue
+			}
+
+			// Is the code generation algorithm random enough?
+			if exists, err := repository.CheckCodeExists(c, encodedUrl); err != nil {
+				log.Println("Error: ", err.Error())
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			} else if exists == 0 {
+				log.Println("Took", tries, "tries to generate code")
+				break
+			}
 		}
-
-		// Is the code generation algorithm random enough?
-		if exists, err := repository.CheckCodeExists(c, encodedUrl); err != nil {
-			log.Println("Error: ", err.Error())
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		} else if exists == 0 {
-			log.Println("Took", tries, "tries to generate code")
-			break
-		}
-	}
-
-	if l := len(url.CustomCode); l > CUSTOM_CODE_MAX_LENGTH {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooLong.Error()})
-		return
-	} else if l < CUSTOM_CODE_MIN_LENGTH {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooShort.Error()})
-		return
 	} else {
-		if _, ok := store.GetFromCache(url.CustomCode); ok {
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCodeAlreadyUsed.Error()})
+		if l := len(url.CustomCode); l > CUSTOM_CODE_MAX_LENGTH {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooLong.Error()})
 			return
-		}
-
-		if exists, err := repository.CheckCodeExists(c, url.CustomCode); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		} else if exists == 1 {
-			store.AddToCache(encodedUrl, url.URL)
-			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCodeAlreadyUsed.Error()})
+		} else if l < CUSTOM_CODE_MIN_LENGTH {
+			c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCustomCodeTooShort.Error()})
 			return
 		} else {
-			encodedUrl = url.CustomCode
+			if _, ok := store.GetFromCache(url.CustomCode); ok {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCodeAlreadyUsed.Error()})
+				return
+			}
+
+			if val, err := repository.CheckCodeExists(c, url.CustomCode); err != nil {
+				log.Println("Error: ", err.Error())
+				c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			} else if val == 1 {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrCodeAlreadyUsed.Error()})
+				return
+			}
 		}
 
-		if err := repository.AddShortenedUrl(c, url.URL, encodedUrl, url.Days); err != nil {
-			c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		store.AddToCache(encodedUrl, url.URL)
-		c.JSON(http.StatusCreated, gin.H{"code": encodedUrl})
+		encodedUrl = url.CustomCode
 	}
+
+	if err := repository.AddShortenedUrl(c, url.URL, encodedUrl, url.Days); err != nil {
+		c.AbortWithStatusJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	store.AddToCache(encodedUrl, url.URL)
+	c.JSON(http.StatusCreated, gin.H{"code": encodedUrl})
 }
 
 func RetrieveMappingHandler(c *gin.Context) {

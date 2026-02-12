@@ -14,7 +14,7 @@ import (
 const (
 	BurstLimit               = 4
 	NormalLimit              = 1
-	RateLimiterResetInterval = 5 * time.Minute
+	RateLimiterResetInterval = 1 * time.Minute
 )
 
 var limiters = sync.Map{}
@@ -33,8 +33,8 @@ func StartRateLimiterCleanup(wg *sync.WaitGroup, ctx context.Context) {
 			case <-ticker.C:
 				{
 					limiters.Range(func(key, value any) bool {
-						client := key.(*Client)
-						if time.Since(client.LastSeen) > 5*time.Minute {
+						client := value.(*Client)
+						if time.Since(client.LastSeen) > RateLimiterResetInterval {
 							limiters.Delete(key)
 						}
 
