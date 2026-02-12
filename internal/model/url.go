@@ -2,7 +2,7 @@ package model
 
 // URL Model
 type URL struct {
-	URL        string `json:"url" binding:"required" validate:"required,url"`
+	URL        string `json:"url" binding:"required" validate:"url"`
 	Days       int    `json:"days" binding:"gt=0,lte=7"`
 	CustomCode string `json:"custom_code" binding:"omitempty"`
 }

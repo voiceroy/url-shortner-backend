@@ -12,6 +12,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 )
 
 const (
@@ -21,12 +22,15 @@ const (
 )
 
 var (
+	ErrInvalidURL         = errors.New("invalid url")
 	ErrNoCodeSpecified    = errors.New("no code supplied")
 	ErrCodeAlreadyUsed    = errors.New("code already used")
 	ErrCustomCodeTooShort = errors.New("custom code too short")
 	ErrCustomCodeTooLong  = errors.New("custom code too long")
 	ErrDaysOutOfRange     = errors.New("no of days should be between 1 to 7")
 )
+
+var validate = validator.New(validator.WithRequiredStructEnabled())
 
 func ShortenURLHandler(c *gin.Context) {
 	var url model.URL
@@ -35,9 +39,31 @@ func ShortenURLHandler(c *gin.Context) {
 		return
 	}
 
-	if url.Days < 1 || url.Days > 7 {
-		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrDaysOutOfRange.Error()})
-		return
+	err := validate.Struct(url)
+	if err != nil {
+		var validateErrs validator.ValidationErrors
+		if errors.As(err, &validateErrs) {
+			for _, e := range validateErrs {
+				switch e.Field() {
+				case "URL":
+					{
+						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrInvalidURL.Error()})
+						return
+					}
+				case "Days":
+					{
+						c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": ErrDaysOutOfRange.Error()})
+						return
+					}
+				default:
+					{
+						log.Println("Invalid error", e)
+						c.AbortWithStatus(http.StatusInternalServerError)
+						return
+					}
+				}
+			}
+		}
 	}
 
 	var encodedUrl string
