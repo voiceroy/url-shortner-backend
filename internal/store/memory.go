@@ -17,6 +17,7 @@ func StartCacheCleanup(wg *sync.WaitGroup, ctx context.Context) {
 			select {
 			case <-ticker.C:
 				{
+					log.Println("cleaning cache")
 					cache.Clear()
 				}
 			case <-ctx.Done():

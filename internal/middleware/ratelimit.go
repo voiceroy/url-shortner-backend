@@ -32,6 +32,8 @@ func StartRateLimiterCleanup(wg *sync.WaitGroup, ctx context.Context) {
 			select {
 			case <-ticker.C:
 				{
+					log.Println("resetting rate limiters")
+
 					limiters.Range(func(key, value any) bool {
 						client := value.(*Client)
 						if time.Since(client.LastSeen) > RateLimiterResetInterval {
